@@ -15,7 +15,6 @@ async def _help(_, m: types.Message):
     await m.reply_text(
         text=m.lang["help_menu"],
         reply_markup=buttons.help_markup(m.lang),
-        quote=True,
     )
 
 
@@ -36,12 +35,19 @@ async def start(_, message: types.Message):
     )
 
     key = buttons.start_key(message.lang, private)
-    await message.reply_photo(
-        photo=config.START_IMG,
-        caption=_text,
-        reply_markup=key,
-        quote=not private,
-    )
+    if private:
+        await app.send_photo(
+            chat_id=message.chat.id,
+            photo=config.START_IMG,
+            caption=_text,
+            reply_markup=key,
+        )
+    else:
+        await message.reply_photo(
+            photo=config.START_IMG,
+            caption=_text,
+            reply_markup=key,
+        )
 
     if private:
         if await db.is_user(message.from_user.id):
@@ -66,7 +72,6 @@ async def settings(_, message: types.Message):
         reply_markup=buttons.settings_markup(
             message.lang, admin_only, cmd_delete, _language, message.chat.id
         ),
-        quote=True,
     )
 
 
