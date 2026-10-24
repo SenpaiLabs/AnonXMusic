@@ -100,6 +100,8 @@ async def _controls(_, query: types.CallbackQuery):
 
     elif action == "replay":
         media = queue.get_current(chat_id)
+        if not media:
+            return await query.edit_message_text(query.lang["play_expired"])
         media.user = user
         await anon.replay(chat_id)
         status = query.lang["replayed"]

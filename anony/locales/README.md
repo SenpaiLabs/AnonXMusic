@@ -50,6 +50,11 @@
             <td><a href=https://github.com/AshokShau>@AshokShau</a></td>
         </tr>
         <tr>
+            <td>ko</td>
+            <td>Korean</td>
+            <td>-</td>
+        </tr>
+        <tr>
             <td>my</td>
             <td>Burmese</td>
             <td><a href=https://github.com/AshokShau>@AshokShau</a></td>
