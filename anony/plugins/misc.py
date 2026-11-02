@@ -108,25 +108,25 @@ async def vc_watcher(sleep=15):
     while True:
         await asyncio.sleep(sleep)
         for chat_id in list(db.active_calls):
-            client = await db.get_assistant(chat_id)
             media = queue.get_current(chat_id)
-            if not media:
+            if not media or media.time <= 30:
                 continue
-            participants = await client.get_participants(chat_id)
-            if len(participants) < 2 and media.time > 30:
-                _lang = await lang.get_lang(chat_id)
-                try:
-                    sent = await app.edit_message_reply_markup(
-                        chat_id=chat_id,
-                        message_id=media.message_id,
-                        reply_markup=buttons.controls(
-                            chat_id=chat_id, status=_lang["stopped"], remove=True
-                        ),
-                    )
-                    await anon.stop(chat_id)
-                    await sent.reply_text(_lang["auto_left"])
-                except errors.MessageIdInvalid:
-                    pass
+            if not await anon.is_vc_empty(chat_id):
+                continue
+
+            _lang = await lang.get_lang(chat_id)
+            try:
+                sent = await app.edit_message_reply_markup(
+                    chat_id=chat_id,
+                    message_id=media.message_id,
+                    reply_markup=buttons.controls(
+                        chat_id=chat_id, status=_lang["stopped"], remove=True
+                    ),
+                )
+                await anon.stop(chat_id)
+                await sent.reply_text(_lang["auto_left"])
+            except errors.MessageIdInvalid:
+                pass
 
 
 if config.AUTO_END:

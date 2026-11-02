@@ -9,6 +9,7 @@ import yt_dlp
 import random
 import asyncio
 import aiohttp
+import time
 from pathlib import Path
 
 from py_yt import Playlist, VideosSearch
@@ -16,16 +17,6 @@ from py_yt import Playlist, VideosSearch
 from anony import logger
 from anony.helpers import Track, utils
 
-
-class DummyLogger:
-    def debug(self, msg):
-        pass
-
-    def warning(self, msg):
-        pass
-
-    def error(self, msg):
-        pass
 
 class YouTube:
     def __init__(self):
@@ -98,6 +89,51 @@ class YouTube:
             )
         return None
 
+    async def autoplay(self, video_id: str, history: set[str], video: bool = False) -> Track | None:
+        try:
+            def _extract_mix():
+                opts = {
+                    "quiet": True,
+                    "no_warnings": True,
+                    "extract_flat": True,
+                    "geo_bypass": True,
+                    "nocheckcertificate": True,
+                    "playlistend": 15,
+                }
+                if cookie := self.get_cookies():
+                    opts["cookiefile"] = cookie
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    return ydl.extract_info(
+                        f"{self.base}{video_id}&list=RD{video_id}", download=False
+                    )
+
+            info = await asyncio.to_thread(_extract_mix)
+        except Exception:
+            return None
+
+        entries = info.get("entries") if info else None
+        if not entries:
+            return None
+
+        for entry in entries:
+            item_id = entry.get("id")
+            duration_sec = int(entry.get("duration") or 0)
+            if not item_id or item_id == video_id or item_id in history or not duration_sec:
+                continue
+
+            return Track(
+                id=item_id,
+                channel_name=entry.get("uploader") or "",
+                duration=time.strftime("%M:%S", time.gmtime(duration_sec)),
+                duration_sec=duration_sec,
+                title=entry.get("title", "")[:25],
+                thumbnail=(entry.get("thumbnail") or "").split("?")[0],
+                url=self.base + item_id,
+                view_count=str(entry.get("view_count", "")),
+                video=video,
+            )
+        return None
+
     async def playlist(self, limit: int, user: str, url: str, video: bool) -> list[Track | None]:
         tracks = []
         try:
@@ -136,7 +172,6 @@ class YouTube:
             "geo_bypass": True,
             "no_warnings": True,
             "overwrites": False,
-            "logger": DummyLogger(),
             "nocheckcertificate": True,
             "cookiefile": cookie,
             "remote_components": ["ejs:github"],

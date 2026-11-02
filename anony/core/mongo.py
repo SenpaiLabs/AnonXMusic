@@ -22,10 +22,10 @@ class MongoDB:
         self.admin_list = {}
         self.active_calls = {}
         self.admin_play = []
+        self.autoplay = set()
         self.blacklisted = []
         self.cmd_delete = []
         self.loop = {}
-        self.notified = []
         self.cache = self.db.cache
         self.logger = False
 
@@ -276,6 +276,22 @@ class MongoDB:
             {"_id": chat_id},
             {"$set": {"admin_play": not remove}},
             upsert=True,
+        )
+
+    async def get_autoplay(self, chat_id: int) -> bool:
+        if chat_id not in self.autoplay:
+            doc = await self.chatsdb.find_one({"_id": chat_id})
+            if doc and doc.get("autoplay"):
+                self.autoplay.add(chat_id)
+        return chat_id in self.autoplay
+
+    async def set_autoplay(self, chat_id: int, enabled: bool) -> None:
+        if enabled:
+            self.autoplay.add(chat_id)
+        else:
+            self.autoplay.discard(chat_id)
+        await self.chatsdb.update_one(
+            {"_id": chat_id}, {"$set": {"autoplay": enabled}}, upsert=True
         )
 
     # SUDO METHODS

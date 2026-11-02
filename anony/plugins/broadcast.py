@@ -3,8 +3,8 @@
 # This file is part of AnonXMusic
 
 
-import os
 import asyncio
+import io
 
 from pyrogram import errors, filters, types
 
@@ -34,7 +34,7 @@ async def _broadcast(_, message: types.Message):
         users = set(await db.get_users())
 
     chats = list(groups | users)
-    failed = None
+    failed = []
 
     async with broadcasting:
         for chat in chats:
@@ -52,19 +52,16 @@ async def _broadcast(_, message: types.Message):
             except errors.FloodWait as fw:
                 await asyncio.sleep(fw.value + 10)
             except Exception as ex:
-                if not failed:
-                    failed = open("errors.txt", "w")
-                failed.write(f"{chat} - {ex}\n")
+                failed.append(f"{chat} - {ex}")
                 continue
 
     text = message.lang["gcast_end"].format(count, ucount)
     if failed:
-        failed.close()
+        file = io.BytesIO("\n".join(failed).encode())
+        file.name = "errors.txt"
         await message.reply_document(
-            document="errors.txt",
+            document=file,
             caption=text,
         )
-        try: os.remove("errors.txt")
-        except Exception: pass
 
     await sent.edit_text(text)

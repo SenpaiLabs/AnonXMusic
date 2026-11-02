@@ -8,6 +8,8 @@ from ntgcalls import (ConnectionNotFound, TelegramServerError,
                       TransportParseException)
 from pyrogram.errors import (ChatSendMediaForbidden, ChatSendPhotosForbidden,
                              MessageIdInvalid)
+from pyrogram.raw import functions
+from pyrogram.raw import types as raw_types
 from pyrogram.types import InputMediaPhoto, Message
 from pytgcalls import PyTgCalls, exceptions, types
 from pytgcalls.pytgcalls_session import PyTgCallsSession
@@ -66,7 +68,7 @@ class TgCall(PyTgCalls):
 
         if not media.file_path:
             await message.edit_text(_lang["error_no_file"].format(config.SUPPORT_CHAT))
-            return await self.play_next(chat_id)
+            return await self.play_next(chat_id, autoplay=False)
 
         stream = types.MediaStream(
             media_path=media.file_path,
@@ -124,13 +126,13 @@ class TgCall(PyTgCalls):
                     media.message_id = sent.id
         except FileNotFoundError:
             await message.edit_text(_lang["error_no_file"].format(config.SUPPORT_CHAT))
-            await self.play_next(chat_id)
+            await self.play_next(chat_id, autoplay=False)
         except exceptions.NoActiveGroupCall:
             await self.stop(chat_id)
             await message.edit_text(_lang["error_no_call"])
         except exceptions.NoAudioSourceFound:
             await message.edit_text(_lang["error_no_audio"])
-            await self.play_next(chat_id)
+            await self.play_next(chat_id, autoplay=False)
         except (ConnectionError, ConnectionNotFound, TelegramServerError,
                 TransportParseException, TimeoutError):
             await self.stop(chat_id)
@@ -150,13 +152,76 @@ class TgCall(PyTgCalls):
         media.message_id = msg.id
         await self.play_media(chat_id, msg, media)
 
+    async def is_vc_empty(self, chat_id: int) -> bool:
+        assistant = await db.get_client(chat_id)
+        if not assistant:
+            return False
 
-    async def play_next(self, chat_id: int) -> None:
+        try:
+            peer = await assistant.resolve_peer(chat_id)
+            if isinstance(peer, raw_types.InputPeerChannel):
+                full = await assistant.invoke(
+                    functions.channels.GetFullChannel(channel=peer)
+                )
+            elif isinstance(peer, raw_types.InputPeerChat):
+                full = await assistant.invoke(
+                    functions.messages.GetFullChat(chat_id=peer.chat_id)
+                )
+            else:
+                return False
+
+            call = full.full_chat.call
+            if not call:
+                return True
+
+            offset = ""
+            while True:
+                participants = await assistant.invoke(
+                    functions.phone.GetGroupParticipants(
+                        call=call, ids=[], sources=[], offset=offset, limit=100
+                    )
+                )
+                for participant in participants.participants:
+                    user_id = getattr(participant.peer, "user_id", None)
+                    if user_id and user_id != assistant.id:
+                        return False
+                offset = getattr(participants, "next_offset", "")
+                if not offset:
+                    return True
+        except Exception:
+            return False
+
+
+    async def play_next(self, chat_id: int, autoplay: bool = True) -> None:
         if loop := await db.get_loop(chat_id):
             await db.set_loop(chat_id, loop - 1)
             return await self.replay(chat_id)
 
+        current = queue.get_current(chat_id)
         media = queue.get_next(chat_id)
+
+        if (
+            autoplay
+            and not media
+            and isinstance(current, Track)
+            and await db.get_autoplay(chat_id)
+        ):
+            if config.AUTO_END and await self.is_vc_empty(chat_id):
+                return await self.stop(chat_id)
+            queue.add_history(chat_id, current.id)
+            media = await yt.autoplay(
+                current.id, queue.get_history(chat_id), video=current.video
+            )
+            if media:
+                media.user = "Autoplay"
+                queue.add(chat_id, media)
+                media = queue.get_current(chat_id)
+            else:
+                media = None
+
+        if not media:
+            return await self.stop(chat_id)
+
         try:
             if media.message_id:
                 await app.delete_messages(
@@ -168,15 +233,12 @@ class TgCall(PyTgCalls):
         except Exception:
             pass
 
-        if not media:
-            return await self.stop(chat_id)
-
         _lang = await lang.get_lang(chat_id)
         msg = await app.send_message(chat_id=chat_id, text=_lang["play_next"])
         if not media.file_path:
             media.file_path = await yt.download(media.id, video=media.video)
             if not media.file_path:
-                await self.play_next(chat_id)
+                await self.play_next(chat_id, autoplay=False)
                 return await msg.edit_text(
                     _lang["error_no_file"].format(config.SUPPORT_CHAT)
                 )

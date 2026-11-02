@@ -3,7 +3,7 @@
 # This file is part of AnonXMusic
 
 
-import os
+import io
 
 from pyrogram import filters, types
 
@@ -29,13 +29,11 @@ async def _activevc(_, m: types.Message):
     if len(text) < 4000:
         return await sent.edit_text(m.lang["vc_list"] + text)
 
-    with open("activevc.txt", "w") as f:
-        f.write(text)
-    f.close()
+    file = io.BytesIO(text.encode())
+    file.name = "activevc.txt"
     await sent.edit_media(
         media=types.InputMediaDocument(
-            media="activevc.txt",
+            media=file,
             caption=m.lang["vc_list"],
         )
     )
-    os.remove("activevc.txt")
