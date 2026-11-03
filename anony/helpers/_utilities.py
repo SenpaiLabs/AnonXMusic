@@ -95,11 +95,12 @@ class Utilities:
         duration: str,
         user_id: int | str | None = None,
         user_mention: str | None = None,
+        language: dict | None = None,
     ) -> None:
         if m.chat.id == app.logger:
             return
         user = m.from_user
-        _text = m.lang["play_log"].format(
+        _text = (language or m.lang)["play_log"].format(
             app.name,
             m.chat.id,
             m.chat.title,

@@ -251,6 +251,7 @@ class TgCall(PyTgCalls):
                 media.duration,
                 user_id="Autoplay",
                 user_mention="Autoplay",
+                language=_lang,
             )
 
         media.message_id = msg.id
