@@ -30,8 +30,13 @@ class Utilities:
         else:
             return f"{bytes / 1024:.2f} KB"
 
-    def to_seconds(self, time: str) -> int:
-        parts = [int(p) for p in time.strip().split(":")]
+    def to_seconds(self, time: str | None) -> int:
+        if not isinstance(time, str):
+            return 0
+        try:
+            parts = [int(part) for part in time.strip().split(":")]
+        except ValueError:
+            return 0
         return sum(value * 60**i for i, value in enumerate(reversed(parts)))
 
 
@@ -88,15 +93,18 @@ class Utilities:
         link: str,
         title: str,
         duration: str,
+        user_id: int | str | None = None,
+        user_mention: str | None = None,
     ) -> None:
         if m.chat.id == app.logger:
             return
+        user = m.from_user
         _text = m.lang["play_log"].format(
             app.name,
             m.chat.id,
             m.chat.title,
-            m.from_user.id,
-            m.from_user.mention,
+            user_id if user_id is not None else user.id,
+            user_mention if user_mention is not None else user.mention,
             link,
             title,
             duration,

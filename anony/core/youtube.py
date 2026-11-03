@@ -75,11 +75,12 @@ class YouTube:
             return None
         if results and results["result"]:
             data = results["result"][0]
+            duration = data.get("duration") or "00:00"
             return Track(
                 id=data.get("id"),
                 channel_name=data.get("channel", {}).get("name"),
-                duration=data.get("duration"),
-                duration_sec=utils.to_seconds(data.get("duration")),
+                duration=duration,
+                duration_sec=utils.to_seconds(duration),
                 message_id=m_id,
                 title=data.get("title")[:25],
                 thumbnail=data.get("thumbnails", [{}])[-1].get("url").split("?")[0],
@@ -139,11 +140,12 @@ class YouTube:
         try:
             plist = await Playlist.get(url)
             for data in plist["videos"][:limit]:
+                duration = data.get("duration") or "00:00"
                 track = Track(
                     id=data.get("id"),
                     channel_name=data.get("channel", {}).get("name", ""),
-                    duration=data.get("duration"),
-                    duration_sec=utils.to_seconds(data.get("duration")),
+                    duration=duration,
+                    duration_sec=utils.to_seconds(duration),
                     title=data.get("title")[:25],
                     thumbnail=data.get("thumbnails")[-1].get("url").split("?")[0],
                     url=data.get("link").split("&list=")[0],

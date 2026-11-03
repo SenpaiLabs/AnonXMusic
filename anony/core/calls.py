@@ -16,7 +16,7 @@ from pytgcalls.pytgcalls_session import PyTgCallsSession
 
 from anony import (app, config, db, lang, logger,
                    queue, thumb, userbot, yt)
-from anony.helpers import Media, Track, buttons
+from anony.helpers import Media, Track, buttons, utils
 
 
 class TgCall(PyTgCalls):
@@ -242,6 +242,16 @@ class TgCall(PyTgCalls):
                 return await msg.edit_text(
                     _lang["error_no_file"].format(config.SUPPORT_CHAT)
                 )
+
+        if media.user == "Autoplay" and await db.is_logger():
+            await utils.play_log(
+                msg,
+                msg.link,
+                media.title,
+                media.duration,
+                user_id="Autoplay",
+                user_mention="Autoplay",
+            )
 
         media.message_id = msg.id
         await self.play_media(chat_id, msg, media)
