@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    def init(self):
+    def __init__(self):
         self.API_ID = int(getenv("API_ID", 32076000))
         self.API_HASH = getenv("API_HASH", "22adb8c3d3f905d09fe41cf4ae805b71")
 
@@ -46,4 +46,3 @@ class Config:
         ]
         if missing:
             raise SystemExit(f"Missing required environment variables: {', '.join(missing)}")
-            
