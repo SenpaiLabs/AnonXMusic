@@ -16,8 +16,11 @@ def playlist_to_queue(chat_id: int, tracks: list) -> str:
     text = "<blockquote expandable>"
     for track in tracks:
         pos = queue.add(chat_id, track)
-        text += f"<b>{pos}.</b> {track.title}\n"
-    text = text[:1948] + "</blockquote>"
+        line = f"<b>{pos}.</b> {track.title}\n"
+        # Stop adding lines once the limit is hit, so no tag is cut in half.
+        if len(text) + len(line) <= 1948:
+            text += line
+    text += "</blockquote>"
     return text
 
 @app.on_message(

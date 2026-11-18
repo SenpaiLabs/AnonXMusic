@@ -8,7 +8,7 @@ import asyncio
 
 from pyrogram import enums, errors, filters, types
 
-from anony import anon, app, config, db, lang, queue, tasks, userbot, yt
+from anony import anon, app, config, db, lang, logger, queue, tasks, userbot, yt
 from anony.helpers import buttons
 
 
@@ -114,19 +114,24 @@ async def vc_watcher(sleep=15):
             if not await anon.is_vc_empty(chat_id):
                 continue
 
-            _lang = await lang.get_lang(chat_id)
             try:
-                sent = await app.edit_message_reply_markup(
-                    chat_id=chat_id,
-                    message_id=media.message_id,
-                    reply_markup=buttons.controls(
-                        chat_id=chat_id, status=_lang["stopped"], remove=True
-                    ),
-                )
+                _lang = await lang.get_lang(chat_id)
                 await anon.stop(chat_id)
-                await sent.reply_text(_lang["auto_left"])
-            except errors.MessageIdInvalid:
-                pass
+                try:
+                    sent = await app.edit_message_reply_markup(
+                        chat_id=chat_id,
+                        message_id=media.message_id,
+                        reply_markup=buttons.controls(
+                            chat_id=chat_id, status=_lang["stopped"], remove=True
+                        ),
+                    )
+                    await sent.reply_text(_lang["auto_left"])
+                except errors.MessageIdInvalid:
+                    pass
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("vc_watcher failed for chat %s", chat_id)
 
 
 if config.AUTO_END:

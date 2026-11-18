@@ -40,7 +40,16 @@ async def _controls(_, query: types.CallbackQuery):
     if action == "status":
         return await query.answer()
 
+    # Telegram accepts only one answer per query, so pick the alert first.
+    alert = None
+    if action == "pause" and not await db.playing(chat_id):
+        alert = "play_already_paused"
+    elif action == "resume" and await db.playing(chat_id):
+        alert = "play_not_paused"
+
     try:
+        if alert:
+            return await query.answer(query.lang[alert], show_alert=True)
         await query.answer(query.lang["processing"], show_alert=True)
     except errors.QueryIdInvalid:
         try:
@@ -50,10 +59,6 @@ async def _controls(_, query: types.CallbackQuery):
         return
 
     if action == "pause":
-        if not await db.playing(chat_id):
-            return await query.answer(
-                query.lang["play_already_paused"], show_alert=True
-            )
         await anon.pause(chat_id)
         if qaction:
             return await query.edit_message_reply_markup(
@@ -63,8 +68,6 @@ async def _controls(_, query: types.CallbackQuery):
         reply = query.lang["play_paused"].format(user)
 
     elif action == "resume":
-        if await db.playing(chat_id):
-            return await query.answer(query.lang["play_not_paused"], show_alert=True)
         await anon.resume(chat_id)
         if qaction:
             return await query.edit_message_reply_markup(
@@ -117,18 +120,19 @@ async def _controls(_, query: types.CallbackQuery):
             await app.send_message(query.message.chat.id, reply)
             await query.message.delete()
         else:
+            original = query.message.caption or query.message.text
             mtext = re.sub(
                 r"\n\n<blockquote>.*?</blockquote>",
                 "",
-                query.message.caption.html or query.message.text.html,
+                original.html,
                 flags=re.DOTALL,
             )
             keyboard = buttons.controls(
                 chat_id, status=status if action != "resume" else None
             )
-        await query.edit_message_text(
-            f"{mtext}\n\n<blockquote>{reply}</blockquote>", reply_markup=keyboard
-        )
+            await query.edit_message_text(
+                f"{mtext}\n\n<blockquote>{reply}</blockquote>", reply_markup=keyboard
+            )
     except Exception:
         pass
 
