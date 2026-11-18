@@ -4,6 +4,7 @@
 
 import asyncio
 from pyrogram import enums, filters, types
+from pyrogram.errors import ReplyMessageIdInvalid
 
 from anony import app, config, db, lang
 from anony.helpers import buttons, utils
@@ -35,11 +36,19 @@ async def start(_, message: types.Message):
     )
 
     key = buttons.start_key(message.lang, private)
-    await message.reply_photo(
-        photo=config.START_IMG,
-        caption=_text,
-        reply_markup=key,
-    )
+    try:
+        await message.reply_photo(
+            photo=config.START_IMG,
+            caption=_text,
+            reply_markup=key,
+        )
+    except ReplyMessageIdInvalid:
+        await app.send_photo(
+            chat_id=message.chat.id,
+            photo=config.START_IMG,
+            caption=_text,
+            reply_markup=key,
+        )
 
     if private:
         if await db.is_user(message.from_user.id):
